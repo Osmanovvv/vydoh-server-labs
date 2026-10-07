@@ -1,0 +1,27 @@
+# Environment configuration
+.env
+.env.*
+!.env.example
+
+# Dependencies and build outputs
+node_modules/
+dist/
+build/
+coverage/
+
+# Logs and local runtime files
+*.log
+.tmp/
+
+# Other language artifacts
+bin/
+*.exe
+*.bin
+__pycache__/
+.venv/
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

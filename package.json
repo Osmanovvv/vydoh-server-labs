@@ -1,0 +1,26 @@
+{
+  "name": "vydoh-lab3-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Учебный каркас серверного приложения для лабораторной работы №3",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/server.js",
+    "test": "npm run build && node --test dist/test/config.test.js dist/test/health.test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
