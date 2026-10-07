@@ -20,6 +20,7 @@
 | ERD в 3НФ: PK (UUID/BIGINT), FK, NOT NULL / UNIQUE / CHECK, индексы | [5.2. ER-диаграммы](#52-er-диаграммы) (логическая модель ядра в 3НФ + физическая схема всех 28 таблиц), [5.5](#55-нормализация-3нф), [5.6](#56-ограничения-целостности-и-индексы) |
 | ARCHITECTURE.md: название, описание, роли, Use Cases, C4 картинкой, ERD с описанием полей и связей | этот файл; [описание полей](#53-описание-полей-ключевых-таблиц), [связи](#54-связи), полный [словарь данных](docs/data-dictionary.md) |
 | README.md и исходники диаграмм | [README.md](README.md), [`docs/diagrams/*.puml`](docs/diagrams) + PNG/SVG |
+| Контрольные вопросы лабораторной №1 | [ответы](docs/lab-01-control-answers.md) |
 | REST API: не менее 6–8 эндпоинтов и таблица доступа | [8. REST API Specs](#8-rest-api-specs-лабораторная-работа-2), 19 операций с аутентификацией и CRUD |
 | OpenAPI 3.0: YAML, Request/Response schemas и ErrorResponse | [`openapi.yaml`](openapi.yaml), 12 path-шаблонов и 32 схемы |
 | Контрольные вопросы лабораторной №2 | [ответы](docs/lab-02-control-answers.md) |

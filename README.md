@@ -21,7 +21,7 @@
 
 | № | Тема | Результат |
 |---|---|---|
-| 1 | Проектирование архитектуры серверного приложения и предметной области | [ARCHITECTURE.md](ARCHITECTURE.md) — роли и Use Cases, модель предметной области, C4 (Context, Container, Component), ER-диаграммы (логическая модель в 3НФ и физическая схема), [словарь данных](docs/data-dictionary.md) |
+| 1 | Проектирование архитектуры серверного приложения и предметной области | [ARCHITECTURE.md](ARCHITECTURE.md) — роли и Use Cases, модель предметной области, C4 (Context, Container, Component), ER-диаграммы (логическая модель в 3НФ и физическая схема), [словарь данных](docs/data-dictionary.md), [ответы на контрольные вопросы](docs/lab-01-control-answers.md) |
 | 2 | Проектирование REST API и спецификация OpenAPI 3.0 | [REST API Specs](ARCHITECTURE.md#8-rest-api-specs-лабораторная-работа-2) в `ARCHITECTURE.md`, [openapi.yaml](openapi.yaml), [ответы на контрольные вопросы](docs/lab-02-control-answers.md) |
 | 3 | Базовый каркас, Clean / Layered Architecture и конфигурация окружения | `src/` — слои приложения, [`.env.example`](.env.example), [`.gitignore`](.gitignore), `GET /api/v1/health`, [ответы на контрольные вопросы](docs/lab-03-control-answers.md) |
 | 4 | Контейнеризация приложения с Docker | [`Dockerfile`](Dockerfile), [`.dockerignore`](.dockerignore), multi-stage build, запуск контейнера и проверка health-check, [ответы на контрольные вопросы](docs/lab-04-control-answers.md) |
@@ -50,6 +50,7 @@ src/
 test/                     автоматическая проверка health-check
 docs/
   data-dictionary.md      описание всех таблиц, полей, ограничений и индексов
+  lab-01-control-answers.md ответы на контрольные вопросы лабораторной №1
   lab-02-control-answers.md ответы на контрольные вопросы лабораторной №2
   lab-03-control-answers.md ответы на контрольные вопросы лабораторной №3
   lab-04-control-answers.md ответы на контрольные вопросы лабораторной №4
