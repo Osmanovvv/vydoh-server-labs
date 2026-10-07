@@ -1,0 +1,54 @@
+@startuml c4-container
+' C4, уровень 2 — Container: отдельно запускаемые части системы «ВЫДОХ».
+' Развёртывание: сервисы docker-compose.prod.yml + задания cron хоста (см. раздел 6 ARCHITECTURE.md).
+!pragma layout smetana
+!include <C4/C4_Container>
+UpdateLegendTitle("Легенда")
+title C4 · Уровень 2 · Контейнеры системы «ВЫДОХ»
+
+Person(user, "Пользователь", "Telegram-клиент, браузер для оплаты и документов")
+Person(admin, "Администратор", "Браузер")
+
+System_Ext(telegram, "Telegram Bot API", "Апдейты, сообщения, файлы голосовых, Stars")
+System_Ext(yandex, "Yandex Cloud AI", "SpeechKit STT v3, YandexGPT 5 Pro/Lite, Text Embeddings")
+System_Ext(yabilling, "Yandex Cloud IAM + Billing API", "Остаток на счёте облака")
+System_Ext(openai, "OpenAI Whisper", "Альтернативная расшифровка (по настройке)")
+System_Ext(robokassa, "Робокасса", "Платёжный шлюз")
+System_Ext(storage, "Внешнее хранилище копий", "rclone-remote, задаётся на сервере")
+System_Ext(le, "Let's Encrypt", "Сертификаты TLS")
+
+System_Boundary(vydoh, "Программная система «ВЫДОХ»") {
+  Container(caddy, "Обратный прокси", "Caddy 2", "Единственная точка входа: TLS, 5 маршрутов на приложение, остальное — 404")
+  Container(bot, "Серверное приложение", "Node.js 24, TypeScript, grammY, Express 5, BullMQ", "Вебхук Telegram, ИИ-конвейер, бизнес-логика, воркеры очередей, планировщик, API админ-панели, приём платежей, /docs")
+  Container(spa, "Админ-панель", "React 19, Vite (SPA)", "Интерфейс администратора, работает в браузере")
+  ContainerDb(pg, "База данных", "PostgreSQL 17 + pgvector", "28 таблиц: пользователи, сообщения, записи, напоминания, оплата, журналы")
+  ContainerQueue(redis, "Брокер очередей", "Redis 7 (AOF)", "Очереди BullMQ, отложенные задания, распределённые замки, хвост диалога")
+  Container(migrate, "Миграции", "Node.js, Drizzle migrator", "Одноразовый: накатывает схему до старта приложения")
+  Container(cron, "Задания обслуживания", "cron хоста, bash", "Пульс /health/ready, ночной бэкап, проверка восстановления")
+}
+
+Rel(user, telegram, "Сообщения и кнопки", "Telegram-клиент")
+Rel(user, robokassa, "Оплачивает подписку", "HTTPS, браузер")
+Rel(user, caddy, "Читает документы /docs", "HTTPS, браузер")
+Rel(telegram, caddy, "POST /telegram/webhook", "HTTPS")
+Rel(admin, spa, "Работает в панели", "HTTPS, браузер")
+Rel(spa, caddy, "Вызовы /admin/api/*", "HTTPS, JSON")
+Rel(robokassa, caddy, "ResultURL /billing/robokassa/result", "HTTPS")
+Rel(caddy, bot, "Проксирует запросы", "HTTP :3000")
+Rel(caddy, le, "Выпуск сертификата", "ACME/HTTPS")
+Rel(bot, spa, "Отдаёт статику /admin", "HTTPS через Caddy")
+
+Rel(bot, pg, "Читает и пишет данные", "SQL/TCP 5432, Drizzle ORM")
+Rel(bot, redis, "Задания, замки, хвост диалога", "RESP/TCP 6379")
+Rel(bot, telegram, "Ответы, напоминания, оповещения", "HTTPS, Bot API")
+Rel(bot, yandex, "Речь → текст, разбор, векторы", "HTTPS REST/JSON")
+Rel(bot, openai, "Речь → текст (альтернатива)", "HTTPS")
+Rel(bot, yabilling, "Баланс облака", "HTTPS")
+Rel(bot, robokassa, "Автосписания, статус операции", "HTTPS")
+Rel(migrate, pg, "Применяет миграции", "SQL")
+Rel(cron, pg, "pg_dump, пробное восстановление", "docker compose exec, SQL")
+Rel(cron, bot, "Проверка готовности", "docker compose exec, HTTP /health/ready")
+Rel(cron, storage, "Зашифрованные копии", "rclone")
+Rel(cron, telegram, "Оповещения о сбоях", "HTTPS, Bot API (curl)")
+SHOW_LEGEND()
+@enduml

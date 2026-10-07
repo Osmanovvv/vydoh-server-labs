@@ -1,0 +1,82 @@
+@startuml domain-model
+' Концептуальная модель предметной области «ВЫДОХ»: сущности и связи без технических полей.
+' Физические таблицы — на диаграммах erd-core / erd-billing / erd-service.
+!pragma layout smetana
+hide circle
+hide empty members
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #3C4A5C
+  ArrowColor #3C4A5C
+}
+title Модель предметной области «ВЫДОХ» (концептуальный уровень)
+
+class "Пользователь" as User {
+  Telegram ID
+  часовой пояс
+  согласие на обработку ПД
+}
+class "Настройки" as Settings {
+  время утренней / вечерней сводки
+  режим тишины
+}
+class "Сообщение" as Message {
+  вид: текст / голос
+  текст / расшифровка
+}
+class "Выгрузка" as Batch {
+  склеенный текст
+  статус разбора
+}
+class "Запись" as Item {
+  тип: задача / желание / идея / инфо / эмоция
+  приоритет, статус
+  срок и его точность
+  правило повторения
+}
+class "Сфера" as Topic {
+  название, эмодзи
+  ветка чата Telegram
+}
+class "Шаг цели" as Step {
+  формулировка, порядок
+  отметка выполнения
+}
+class "Напоминание" as Reminder {
+  вид, момент отправки
+}
+class "Ревизия записи" as Revision {
+  снимок «до» и «после»
+}
+class "Уточняющий вопрос" as Question {
+  «добавить к прошлой или новое?»
+}
+class "Подписка" as Subscription {
+  тариф, конец периода
+  автопродление
+}
+class "Счёт" as Invoice {
+  сумма, статус оплаты
+}
+class "Промокод" as Promo
+class "Рассылка" as Broadcast
+
+User "1" -- "1" Settings : имеет
+User "1" -- "0..*" Message : отправляет
+Message "1..*" -- "0..1" Batch : склеиваются в
+Batch "0..1" -- "0..*" Item : порождает
+User "1" -- "0..*" Item : владеет
+Topic "0..1" -- "0..*" Item : группирует
+User "1" -- "0..*" Topic : ведёт
+Item "1" -- "0..*" Step : делится на
+Item "0..1" -- "0..*" Reminder : напоминается
+User "1" -- "0..*" Reminder : получает
+Item "1" -- "0..*" Revision : хранит историю
+Item "1" -- "0..*" Question : уточняется
+User "1" -- "0..2" Subscription : оформляет\n(≤ 1 на способ оплаты)
+User "0..1" -- "0..*" Invoice : оплачивает
+Promo "0..1" -- "0..*" Invoice : применён в
+Broadcast "0..*" -- "0..*" User : доставляется
+@enduml

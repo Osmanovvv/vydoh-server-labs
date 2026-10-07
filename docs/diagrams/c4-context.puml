@@ -1,0 +1,33 @@
+@startuml c4-context
+' C4, уровень 1 — System Context: система «ВЫДОХ» и её окружение.
+!pragma layout smetana
+!include <C4/C4_Context>
+UpdateLegendTitle("Легенда")
+title C4 · Уровень 1 · Контекст системы «ВЫДОХ»
+
+Person(user, "Пользователь", "Человек в Telegram: наговаривает или пишет поток мыслей, получает разбор, план и напоминания")
+Person(admin, "Администратор", "Владелец сервиса: метрики, промпты, реплики, рассылки, документы, настройки")
+
+System(vydoh, "ВЫДОХ", "Telegram-бот: расшифровывает сообщения, с помощью ИИ раскладывает их на задачи и мысли, ведёт бэклог и напоминает о делах")
+
+System_Ext(telegram, "Telegram", "Bot API: доставка сообщений, ветки чата, платежи Telegram Stars")
+System_Ext(yandex, "Yandex Cloud", "SpeechKit (речь в текст), YandexGPT (разбор), эмбеддинги, Billing API (баланс)")
+System_Ext(openai, "OpenAI Whisper", "Альтернативный провайдер распознавания речи (выбирается настройкой)")
+System_Ext(robokassa, "Робокасса", "Приём рублёвых платежей и автосписаний подписки")
+System_Ext(storage, "Внешнее хранилище копий", "rclone-remote (S3-совместимое), задаётся на сервере")
+System_Ext(le, "Let's Encrypt", "TLS-сертификат для домена")
+
+Rel(user, telegram, "Голосовые и текстовые сообщения, кнопки", "Telegram-клиент")
+Rel(telegram, vydoh, "Доставляет апдейты", "HTTPS webhook")
+Rel(vydoh, telegram, "Ответы, напоминания, счета Stars, оповещения администратору", "HTTPS, Bot API")
+Rel(admin, vydoh, "Управляет сервисом через веб-панель", "HTTPS, браузер")
+Rel(vydoh, yandex, "Расшифровка речи, разбор текста ИИ, векторы, баланс", "HTTPS REST/JSON")
+Rel(vydoh, openai, "Расшифровка речи (альтернатива)", "HTTPS")
+Rel(user, robokassa, "Оплачивает подписку картой", "HTTPS, браузер")
+Rel(user, vydoh, "Читает юридические документы /docs", "HTTPS, браузер")
+Rel(robokassa, vydoh, "Уведомление об оплате (ResultURL)", "HTTPS")
+Rel(vydoh, robokassa, "Автосписания, статус операции", "HTTPS")
+Rel(vydoh, storage, "Ночные зашифрованные копии БД", "rclone")
+Rel(vydoh, le, "Выпуск и продление сертификата", "ACME/HTTPS")
+SHOW_LEGEND()
+@enduml

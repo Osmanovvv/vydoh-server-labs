@@ -1,0 +1,134 @@
+@startuml erd-billing
+!pragma layout smetana
+hide circle
+hide empty members
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #3C4A5C
+  FontStyle bold
+}
+skinparam ArrowColor #3C4A5C
+title ERD «ВЫДОХ» (физическая схема): Подписка и оплата
+
+entity "users" as users #EEF1F5 {
+  * id : uuid <<PK>>
+  --
+  .. подробно — на ERD ядра ..
+}
+entity "promo_codes" as promo_codes {
+  * code : text <<PK>>
+  --
+  * plan : billing_plan
+  * price_rub_minor : integer
+  * price_stars : integer
+    valid_until : timestamptz
+    max_redemptions : integer
+    note : text
+  * created_at : timestamptz
+    disabled_at : timestamptz
+}
+entity "billing_invoices" as billing_invoices {
+  * id : uuid <<PK>>
+  --
+  * provider : text
+    user_id : uuid <<FK>>
+  * plan : billing_plan
+  * kind : billing_charge_kind
+    inv_id : bigint <<UQ>>
+    provider_inv_id : bigint
+    parent_inv_id : bigint
+  * amount_minor : integer
+  * currency : text
+    out_sum_sent : text
+    out_sum_received : text
+  * status : billing_invoice_status
+  * ref : text
+    promo_code : text <<FK>>
+    amount_full_minor : integer
+    auto_renew : boolean
+    renews_period_end : timestamptz
+  * receipt_status : text
+    error_code : integer
+    error_text : text
+  * created_at : timestamptz
+    paid_at : timestamptz
+    refunded_at : timestamptz
+    failed_at : timestamptz
+    expires_at : timestamptz
+}
+entity "billing_subscriptions" as billing_subscriptions {
+  * id : uuid <<PK>>
+  --
+  * provider : text
+  * user_id : uuid <<FK>>
+  * plan : billing_plan
+  * status : billing_sub_status
+  * auto_renew : boolean
+  * current_period_end : timestamptz
+    subscription_ref : text
+    canceled_at : timestamptz
+    last_renewal_at : timestamptz
+    renewal_noticed_for : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+entity "billing_events" as billing_events {
+  * id : uuid <<PK>>
+  --
+  * provider : text
+  * external_id : text
+  * kind : text
+    method : text
+  * signature_ok : boolean
+  * payload : jsonb
+    invoice_id : uuid <<FK>>
+  * received_at : timestamptz
+    processed_at : timestamptz
+}
+entity "billing_price_changes" as billing_price_changes {
+  * id : uuid <<PK>>
+  --
+  * rail : text
+  * plan : billing_plan
+  * amount_minor : integer
+  * currency : text
+  * announced_at : timestamptz
+  * effective_at : timestamptz
+  * notified : integer
+    canceled_at : timestamptz
+}
+entity "billing_consents" as billing_consents {
+  * id : uuid <<PK>>
+  --
+    user_id : uuid <<FK>>
+  * rail : text
+  * plan : billing_plan
+  * amount_minor : integer
+  * currency : text
+  * offer_url : text
+    offer_edition : text
+  * period : text
+    invoice_id : uuid <<FK>>
+  * consented_at : timestamptz
+}
+
+users |o--o{ billing_invoices : user_id
+promo_codes |o--o{ billing_invoices : promo_code
+users ||--o{ billing_subscriptions : user_id
+billing_invoices |o--o{ billing_events : invoice_id
+users |o--o{ billing_consents : user_id
+billing_invoices |o--o{ billing_consents : invoice_id
+billing_invoices |o..o{ billing_invoices : parent_inv_id → provider_inv_id (без FK)
+legend right
+  <b>Нотация</b>: IE («воронья лапка»)
+  * — NOT NULL, <<PK>> — первичный ключ,
+  <<FK>> — внешний ключ, <<UQ>> — уникальное поле
+  сплошная линия — связь по FK
+  пунктир — логическая связь без FK
+  UNIQUE-пары, CHECK и индексы — в словаре данных
+endlegend
+@enduml

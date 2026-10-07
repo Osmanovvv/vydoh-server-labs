@@ -1,0 +1,54 @@
+@startuml seq-voice-message
+' Последовательность обработки голосового сообщения (основной сценарий UC-3).
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceMessageAlign left
+autonumber
+title Обработка голосового сообщения (UC-3 «Выгрузить мысли»)
+
+actor "Пользователь" as U
+participant "Telegram" as TG
+participant "Caddy" as C
+participant "Обработчик\nincoming (grammY)" as H
+participant "Шлюз и буфер\n(gateway, buffer)" as GB
+queue "Redis\n(BullMQ, замки)" as Q
+participant "Конвейер\n(воркер pipeline)" as P
+participant "Yandex\nSpeechKit" as STT
+participant "YandexGPT +\nэмбеддинги" as LLM
+database "PostgreSQL" as DB
+
+U -> TG : голосовое сообщение
+TG -> C : POST /telegram/webhook (HTTPS)
+C -> H : HTTP :3000
+H -> GB : acceptUpdate
+GB -> DB : одна транзакция: telegram_updates (дедупликация),\nusers (upsert), messages_raw (сырое сообщение)
+H -> GB : attachMessageToBatch
+GB -> DB : прикрепить к открытой выгрузке (batches)
+H -> Q : отложенное задание close-batch\n(окно тишины, по умолчанию 30 с)
+H -> TG : sendMessage «Минуточку, слушаю запись…»
+H --> C : 200 OK
+C --> TG : 200 OK
+... окно тишины без новых сообщений ...
+Q -> P : задание close-batch
+P -> DB : закрыть выгрузку (batches.status = queued)
+P -> Q : задание process-user
+Q -> P : задание process-user
+P -> Q : взять замок lock:user:<id> (SET NX PX)
+P -> TG : скачать файл голосового
+P -> STT : recognizeFileAsync (WAV после ffmpeg)
+STT --> P : operationId
+P -> STT : опрос операции, getRecognition
+STT --> P : текст расшифровки
+P -> DB : messages_raw.transcript (file_id обнуляется)
+P -> LLM : маршрутизатор: намерения\n(DUMP / PATCH / COMPLETE / CANCEL / QUERY …)
+P -> LLM : извлечение единиц (extractor)
+P -> LLM : классификация (classifier):\nтип, приоритет, сфера, срок
+P -> LLM : шаги большой цели (при необходимости)
+P -> LLM : эмбеддинги заголовков (vector 256)
+note over P, DB : каждый вызов модели сразу пишется в ai_calls
+P -> DB : items, topics, project_steps
+P -> TG : editMessageText статусного сообщения:\n«Записала N дел», раскладка по сферам;\nпри трёх и более делах — «Оставить как есть» / «Выбрать главное»
+TG -> U : ответ бота
+P -> DB : batches.status = done
+P -> Q : освободить замок
+@enduml

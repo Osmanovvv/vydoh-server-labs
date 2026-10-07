@@ -1,0 +1,237 @@
+@startuml erd-core
+!pragma layout smetana
+hide circle
+hide empty members
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #3C4A5C
+  FontStyle bold
+}
+skinparam ArrowColor #3C4A5C
+title ERD «ВЫДОХ» (физическая схема): Планирование и обработка сообщений
+
+entity "users" as users {
+  * id : uuid <<PK>>
+  --
+  * tg_id : bigint <<UQ>>
+    username : text
+    first_name : text
+    language_code : text
+  * timezone : text
+  * timezone_confirmed : boolean
+  * has_topics_enabled : boolean
+    referral_source : text
+    consent_at : timestamptz
+    consent_confirmed_at : timestamptz
+    consent_edition : text
+    inactivity_warned_at : timestamptz
+  * is_blocked : boolean
+    blocked_at : timestamptz
+  * created_at : timestamptz
+  * last_active_at : timestamptz
+}
+entity "user_settings" as user_settings {
+  * user_id : uuid <<PK>> <<FK>>
+  --
+  * morning_time : time
+  * evening_time : time
+  * notifications_on : boolean
+  * evening_on : boolean
+  * quiet_hours_on : boolean
+  * quiet_from : time
+  * quiet_to : time
+  * text_profile : text
+  * onboarding_step : integer
+    onboarding_done_at : timestamptz
+    morning_card_at : timestamptz
+    reminder_card_at : timestamptz
+    awaiting_input : text
+    awaiting_since : timestamptz
+    preferred_name : text
+  * updated_at : timestamptz
+}
+entity "messages_raw" as messages_raw {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  * update_id : bigint
+  * tg_chat_id : bigint
+  * tg_message_id : bigint
+    tg_thread_id : bigint
+  * kind : message_kind
+    text : text
+    file_id : text
+    audio_duration_sec : bigint
+    transcript : text
+    batch_id : uuid
+    consumed_at : timestamptz
+    refused_reason : text
+  * received_at : timestamptz
+}
+entity "batches" as batches {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  * status : batch_status
+    combined_text : text
+  * message_count : integer
+  * attempts : integer
+    status_message_id : bigint
+  * status_taken : boolean
+    status_updated_at : timestamptz
+    mentioned_item_ids : uuid[]
+  * opened_at : timestamptz
+  * last_message_at : timestamptz
+    closed_at : timestamptz
+    processing_at : timestamptz
+    processed_at : timestamptz
+    trial_counted_at : timestamptz
+    trial_over_at : timestamptz
+    trial_limit : integer
+    error : text
+}
+entity "items" as items {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+    source_batch_id : uuid <<FK>>
+  * text : text
+    body : text
+    type : item_type
+    priority : item_priority
+    topic_id : uuid <<FK>>
+    topic : text
+  * status : item_status
+    completed_at : timestamptz
+  * is_project : boolean
+    backgrounded_at : timestamptz
+    deferred_at : timestamptz
+    offered_at : timestamptz
+    reviewed_at : timestamptz
+    assignee : text
+    deadline_at : timestamptz
+    deadline_accuracy : deadline_accuracy
+    deadline_time : integer
+    line_mentioned_at : timestamptz
+    embedding : vector(256)
+    recurrence_rule : jsonb
+    recurrence_text : text
+    recurrence_source : recurrence_source
+    source_order : integer
+  * is_draft : boolean
+    draft_reason : text
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+entity "topics" as topics {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  * name : text
+    emoji : text
+  * sort_order : integer
+    tg_thread_id : integer
+    summary_message_id : integer
+  * is_default : boolean
+  * is_archived : boolean
+  * created_at : timestamptz
+}
+entity "item_revisions" as item_revisions {
+  * id : uuid <<PK>>
+  --
+  * item_id : uuid <<FK>>
+  * user_id : uuid <<FK>>
+  * changed_by : changed_by
+    reason : text
+  * before : jsonb
+  * after : jsonb
+    source_message_id : uuid <<FK>>
+    reverted_at : timestamptz
+  * created_at : timestamptz
+}
+entity "pending_questions" as pending_questions {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  * item_id : uuid <<FK>>
+  * batch_id : uuid <<FK>>
+  * segment : text
+  * action : text
+  * changes : jsonb
+    mode : text
+  * expires_at : timestamptz
+    resolved_at : timestamptz
+    outcome : question_outcome
+  * created_at : timestamptz
+}
+entity "recurrence_suggestions" as recurrence_suggestions {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  * item_id : uuid <<FK>>
+  * item_ids : jsonb
+  * kind : text
+  * interval : integer
+    outcome : suggestion_outcome
+    resolved_at : timestamptz
+  * created_at : timestamptz
+}
+entity "project_steps" as project_steps {
+  * id : uuid <<PK>>
+  --
+  * item_id : uuid <<FK>>
+  * user_id : uuid <<FK>>
+  * text : text
+  * position : integer
+    done_at : timestamptz
+  * created_at : timestamptz
+}
+entity "reminders" as reminders {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+    item_id : uuid <<FK>>
+  * kind : reminder_kind
+  * due_at : timestamptz
+  * dedupe_key : text
+    sent_at : timestamptz
+  * attempts : integer
+    skipped_reason : text
+  * created_at : timestamptz
+}
+
+users ||--o| user_settings : user_id
+users ||--o{ messages_raw : user_id
+users ||--o{ batches : user_id
+users ||--o{ items : user_id
+batches |o--o{ items : source_batch_id
+topics |o--o{ items : topic_id
+users ||--o{ topics : user_id
+items ||--o{ item_revisions : item_id
+users ||--o{ item_revisions : user_id
+messages_raw |o--o{ item_revisions : source_message_id
+users ||--o{ pending_questions : user_id
+items ||--o{ pending_questions : item_id
+batches ||--o{ pending_questions : batch_id
+users ||--o{ recurrence_suggestions : user_id
+items ||--o{ recurrence_suggestions : item_id
+items ||--o{ project_steps : item_id
+users ||--o{ project_steps : user_id
+users ||--o{ reminders : user_id
+items |o--o{ reminders : item_id
+batches |o..o{ messages_raw : batch_id (без FK)
+batches }o..o{ items : mentioned_item_ids uuid[]
+recurrence_suggestions }o..o{ items : item_ids jsonb
+legend right
+  <b>Нотация</b>: IE («воронья лапка»)
+  * — NOT NULL, <<PK>> — первичный ключ,
+  <<FK>> — внешний ключ, <<UQ>> — уникальное поле
+  сплошная линия — связь по FK
+  пунктир — логическая связь без FK
+  UNIQUE-пары, CHECK и индексы — в словаре данных
+endlegend
+@enduml

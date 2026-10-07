@@ -1,0 +1,86 @@
+@startuml use-cases
+' Диаграмма вариантов использования «ВЫДОХ»: роли и основные сценарии.
+!pragma layout smetana
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #3C4A5C
+}
+skinparam actor {
+  BorderColor #3C4A5C
+}
+title Варианты использования «ВЫДОХ»
+
+actor "Пользователь" as U
+actor "Администратор" as A
+actor "Время\n(таймер)" as S
+
+rectangle "Telegram-бот «ВЫДОХ»" {
+  usecase "UC-1 Зарегистрироваться\nи дать согласие на ПД" as UC1
+  usecase "UC-2 Пройти онбординг\n(имя, часовой пояс, время сводок)" as UC2
+  usecase "UC-3 Выгрузить мысли\nголосом или текстом" as UC3
+  usecase "Расшифровать голос" as UCa
+  usecase "Распознать намерения\n(маршрутизатор ИИ)" as UCb
+  usecase "UC-4 Выбрать главное —\nодно следующее действие" as UC4
+  usecase "UC-5 Поправить, закрыть\nили отменить дело словами" as UC5
+  usecase "UC-6 Отменить последнее\nизменение" as UC6
+  usecase "UC-7 Спросить о своих делах\n(«что на сегодня?»)" as UC7
+  usecase "UC-8 Просмотреть дела\nв меню и карточках" as UC8
+  usecase "UC-9 Вести большую цель\nпо шагам" as UC9
+  usecase "UC-10 Настроить\nнапоминания и тишину" as UC10
+  usecase "UC-11 Оформить подписку\n(Робокасса / Stars, промокод)" as UC11
+  usecase "UC-12 Экспортировать или\nудалить свои данные" as UC12
+}
+
+rectangle "Админ-панель" {
+  usecase "UC-13 Войти (пароль + TOTP)" as UC13
+  usecase "UC-14 Смотреть метрики,\nворонку и расходы на ИИ" as UC14
+  usecase "UC-15 Открыть карточку\nпользователя" as UC15
+  usecase "UC-16 Управлять версиями\nпромптов" as UC16
+  usecase "UC-17 Провести рассылку" as UC17
+  usecase "UC-18 Разобрать сбои и\nперезапустить разбор" as UC18
+  usecase "UC-19 Править реплики бота,\nдокументы, настройки, промокоды" as UC19
+}
+
+rectangle "Сценарии по расписанию" {
+  usecase "UC-20 Прислать утреннюю\nи вечернюю сводку" as UC20
+  usecase "UC-21 Напомнить о сроке\nили о застрявшей цели" as UC21
+  usecase "UC-22 Продлить подписку" as UC22
+  usecase "UC-23 Удалить данные\nнеактивных пользователей" as UC23
+}
+
+U --> UC1
+U --> UC2
+U --> UC3
+U --> UC4
+U --> UC5
+U --> UC6
+U --> UC7
+U --> UC8
+U --> UC9
+U --> UC10
+U --> UC11
+U --> UC12
+UCa ..> UC3 : <<extend>>\n(голосовое)
+UCa ..> UC5 : <<extend>>
+UCa ..> UC7 : <<extend>>
+UC3 ..> UCb : <<include>>
+UC5 ..> UCb : <<include>>
+UC7 ..> UCb : <<include>>
+
+A --> UC13
+A --> UC14
+A --> UC15
+A --> UC16
+A --> UC17
+A --> UC18
+A --> UC19
+
+S --> UC20
+S --> UC21
+S --> UC22
+S --> UC23
+@enduml

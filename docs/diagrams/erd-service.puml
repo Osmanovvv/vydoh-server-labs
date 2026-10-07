@@ -1,0 +1,163 @@
+@startuml erd-service
+!pragma layout smetana
+hide circle
+hide empty members
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #3C4A5C
+  FontStyle bold
+}
+skinparam ArrowColor #3C4A5C
+title ERD «ВЫДОХ» (физическая схема): Администрирование и служебные данные
+
+entity "users" as users #EEF1F5 {
+  * id : uuid <<PK>>
+  --
+  .. подробно — на ERD ядра ..
+}
+entity "batches" as batches #EEF1F5 {
+  * id : uuid <<PK>>
+  --
+  .. подробно — на ERD ядра ..
+}
+entity "messages_raw" as messages_raw #EEF1F5 {
+  * id : uuid <<PK>>
+  --
+  .. подробно — на ERD ядра ..
+}
+entity "telegram_updates" as telegram_updates {
+  * update_id : bigint <<PK>>
+  --
+  * received_at : timestamptz
+}
+entity "prompt_versions" as prompt_versions {
+  * id : uuid <<PK>>
+  --
+  * stage : ai_stage
+  * version : text
+  * prompt : text
+  * schema_name : text
+  * schema_json : jsonb
+    note : text
+  * is_active : boolean
+  * created_at : timestamptz
+}
+entity "ai_calls" as ai_calls {
+  * id : uuid <<PK>>
+  --
+    user_id : uuid <<FK>>
+    batch_id : uuid <<FK>>
+  * stage : ai_stage
+  * model : text
+    model_version : text
+    prompt_version : text
+    tokens_in : integer
+    tokens_out : integer
+    audio_seconds : integer
+    cost_micros : bigint
+    cost_currency : currency
+  * latency_ms : integer
+  * ok : boolean
+    error : text
+  * created_at : timestamptz
+}
+entity "app_settings" as app_settings {
+  * key : text <<PK>>
+  --
+  * value : text
+  * updated_at : timestamptz
+    updated_by : text
+}
+entity "documents" as documents {
+  * slug : text <<PK>>
+  --
+  * title : text
+  * html : text
+    edition_date : date
+  * updated_at : timestamptz
+    updated_by : text
+}
+entity "document_versions" as document_versions {
+  * id : uuid <<PK>>
+  --
+  * slug : text <<FK>>
+  * html : text
+    edition_date : date
+  * saved_at : timestamptz
+    saved_by : text
+}
+entity "text_overrides" as text_overrides {
+  * path : text <<PK>>
+  --
+  * value : text
+  * updated_at : timestamptz
+    updated_by : text
+}
+entity "misunderstood" as misunderstood {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+    batch_id : uuid <<FK>>
+  * said : text
+  * replied : text
+  * reason : text
+  * kind : text
+  * created_at : timestamptz
+}
+entity "admin_access_log" as admin_access_log {
+  * id : uuid <<PK>>
+  --
+  * login : text
+  * route : text
+    subject_user_id : uuid <<FK>>
+    subjects : integer
+  * at : timestamptz
+}
+entity "broadcasts" as broadcasts {
+  * id : uuid <<PK>>
+  --
+  * text : text
+  * segment : text
+  * status : text
+  * created_by : text
+    stop_requested_at : timestamptz
+  * created_at : timestamptz
+    started_at : timestamptz
+    finished_at : timestamptz
+}
+entity "broadcast_deliveries" as broadcast_deliveries {
+  * id : uuid <<PK>>
+  --
+  * broadcast_id : uuid <<FK>>
+  * user_id : uuid <<FK>>
+  * tg_id : bigint
+  * status : text
+    error : text
+    at : timestamptz
+}
+
+users ||--o{ batches : user_id
+users ||--o{ messages_raw : user_id
+users |o--o{ ai_calls : user_id
+batches |o--o{ ai_calls : batch_id
+documents ||--o{ document_versions : slug
+users ||--o{ misunderstood : user_id
+batches |o--o{ misunderstood : batch_id
+users |o--o{ admin_access_log : subject_user_id
+broadcasts ||--o{ broadcast_deliveries : broadcast_id
+users ||--o{ broadcast_deliveries : user_id
+telegram_updates |o..o{ messages_raw : update_id (без FK)
+prompt_versions |o..o{ ai_calls : (stage, prompt_version) без FK
+legend right
+  <b>Нотация</b>: IE («воронья лапка»)
+  * — NOT NULL, <<PK>> — первичный ключ,
+  <<FK>> — внешний ключ, <<UQ>> — уникальное поле
+  сплошная линия — связь по FK
+  пунктир — логическая связь без FK
+  UNIQUE-пары, CHECK и индексы — в словаре данных
+endlegend
+@enduml
