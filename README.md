@@ -22,14 +22,17 @@
 | № | Тема | Результат |
 |---|---|---|
 | 1 | Проектирование архитектуры серверного приложения и предметной области | [ARCHITECTURE.md](ARCHITECTURE.md) — роли и Use Cases, модель предметной области, C4 (Context, Container, Component), ER-диаграммы (логическая модель в 3НФ и физическая схема), [словарь данных](docs/data-dictionary.md) |
+| 2 | Проектирование REST API и спецификация OpenAPI 3.0 | [REST API Specs](ARCHITECTURE.md#8-rest-api-specs-лабораторная-работа-2) в `ARCHITECTURE.md`, [openapi.yaml](openapi.yaml), [ответы на контрольные вопросы](docs/lab-02-control-answers.md) |
 
 ## Структура репозитория
 
 ```
 README.md                 описание репозитория
 ARCHITECTURE.md           лабораторная №1: архитектурный отчёт
+openapi.yaml              лабораторная №2: REST API и OpenAPI 3.0
 docs/
   data-dictionary.md      описание всех таблиц, полей, ограничений и индексов
+  lab-02-control-answers.md ответы на контрольные вопросы лабораторной №2
   diagrams/
     *.puml                исходники диаграмм (PlantUML)
     *.png, *.svg          экспорты диаграмм

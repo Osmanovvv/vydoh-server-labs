@@ -1,0 +1,1362 @@
+openapi: 3.0.3
+info:
+  title: ВЫДОХ Admin REST API
+  description: |
+    Версионированный REST-контракт серверного приложения «ВЫДОХ» для
+    административной панели. Основной пользовательский канал проекта — Telegram,
+    а этот HTTP-контракт используется SPA админ-панели для просмотра и управления
+    данными предметной области. Сессия администратора хранится в подписанной
+    HttpOnly-cookie; исходный код приложения в учебный репозиторий не входит.
+  version: 1.0.0
+  contact:
+    name: Османов Сервер Ильясович
+  license:
+    name: Учебная спецификация лабораторной работы №2
+    url: https://github.com/Osmanovvv/vydoh-server-labs/blob/main/openapi.yaml
+servers:
+  - url: https://vydoh.test/admin/api/v1
+    description: Локальный домен разработки
+tags:
+  - name: Authentication
+    description: Двухэтапная аутентификация администратора и завершение сессии
+  - name: Users
+    description: Пользователи Telegram и их карточки
+  - name: Items
+    description: Записи бэклога пользователя
+  - name: Topics
+    description: Сферы жизни пользователя
+  - name: Reminders
+    description: Запланированные напоминания и сводки
+  - name: Settings
+    description: Настройки расписания и режима тишины
+paths:
+  /auth/login:
+    post:
+      tags: [Authentication]
+      operationId: startAdminLogin
+      summary: Проверка логина и пароля администратора
+      description: Первый шаг входа. При успешной проверке сервер создаёт короткоживущий challenge для TOTP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              login: owner
+              password: example-password
+      responses:
+        '200':
+          description: Логин и пароль приняты, требуется второй фактор
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginChallenge'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/totp:
+    post:
+      tags: [Authentication]
+      operationId: confirmAdminTotp
+      summary: Подтверждение входа одноразовым кодом TOTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpRequest'
+            example:
+              challenge_id: 2a52d51c-39b6-4f1c-9b2d-3ed64d68b2c4
+              code: '123456'
+      responses:
+        '200':
+          description: Сессия администратора создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: logoutAdmin
+      summary: Завершение сессии администратора
+      security:
+        - AdminSession: []
+      responses:
+        '204':
+          description: Сессия завершена, cookie удалена
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users:
+    get:
+      tags: [Users]
+      operationId: listUsers
+      summary: Список пользователей Telegram
+      security:
+        - AdminSession: []
+      parameters:
+        - name: page
+          in: query
+          description: Номер страницы, начиная с 1
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          description: Размер страницы
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: search
+          in: query
+          description: Поиск по Telegram username, имени или tg_id
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+        - name: blocked
+          in: query
+          description: Фильтр по признаку блокировки бота
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Страница пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Users]
+      operationId: getUser
+      summary: Карточка пользователя
+      description: Возвращает профиль и признаки согласия без секретов и платёжных реквизитов.
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Карточка пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Users]
+      operationId: updateUserModeration
+      summary: Изменение признака блокировки пользователя
+      security:
+        - AdminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPatchRequest'
+            example:
+              is_blocked: false
+      responses:
+        '200':
+          description: Профиль пользователя обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/items:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Items]
+      operationId: listUserItems
+      summary: Список записей пользователя
+      security:
+        - AdminSession: []
+      parameters:
+        - name: status
+          in: query
+          description: Фильтр по статусу жизненного цикла записи
+          required: false
+          schema:
+            $ref: '#/components/schemas/ItemStatus'
+        - name: topic_id
+          in: query
+          description: Фильтр по сфере жизни
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Страница записей бэклога
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Items]
+      operationId: createUserItem
+      summary: Создание записи в бэклоге вручную
+      description: Администратор может добавить корректирующую запись в карточку пользователя.
+      security:
+        - AdminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemCreateRequest'
+            example:
+              text: Позвонить в сервисный центр
+              type: TASK
+              priority: SOON
+              topic_id: 8a8b4c1d-6f7a-4d31-8e4f-9f4a83a8e2a1
+              deadline_at: '2026-10-15T12:00:00Z'
+              deadline_accuracy: day
+      responses:
+        '201':
+          description: Запись создана
+          headers:
+            Location:
+              description: URI созданной записи
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /items/{itemId}:
+    parameters:
+      - $ref: '#/components/parameters/ItemId'
+    get:
+      tags: [Items]
+      operationId: getItem
+      summary: Карточка записи
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Запись бэклога
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Items]
+      operationId: updateItem
+      summary: Частичное изменение записи
+      description: Изменение статуса, приоритета, сферы, срока или текста с созданием ревизии.
+      security:
+        - AdminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemPatchRequest'
+            example:
+              status: in_progress
+              deadline_at: '2026-10-16T12:00:00Z'
+              deadline_accuracy: day
+      responses:
+        '200':
+          description: Запись обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Items]
+      operationId: cancelItem
+      summary: Убрать запись из активного бэклога
+      description: Логическое удаление — запись получает статус cancelled и остаётся в истории ревизий.
+      security:
+        - AdminSession: []
+      responses:
+        '204':
+          description: Запись отменена
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/topics:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Topics]
+      operationId: listUserTopics
+      summary: Список сфер жизни пользователя
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Сферы пользователя
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TopicResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Topics]
+      operationId: createUserTopic
+      summary: Создание сферы жизни
+      security:
+        - AdminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicCreateRequest'
+            example:
+              name: Здоровье
+              emoji: 🧘
+              sort_order: 2
+      responses:
+        '201':
+          description: Сфера создана
+          headers:
+            Location:
+              description: URI созданной сферы
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /topics/{topicId}:
+    parameters:
+      - $ref: '#/components/parameters/TopicId'
+    patch:
+      tags: [Topics]
+      operationId: updateTopic
+      summary: Изменение сферы жизни
+      security:
+        - AdminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicPatchRequest'
+            example:
+              name: Личное здоровье
+              is_archived: false
+      responses:
+        '200':
+          description: Сфера обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Topics]
+      operationId: archiveTopic
+      summary: Архивация сферы жизни
+      description: Сфера архивируется, чтобы не ломать ссылки записей на неё.
+      security:
+        - AdminSession: []
+      responses:
+        '204':
+          description: Сфера заархивирована
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/reminders:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Reminders]
+      operationId: listUserReminders
+      summary: Список напоминаний пользователя
+      security:
+        - AdminSession: []
+      parameters:
+        - name: from
+          in: query
+          description: Начало интервала в UTC
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: Конец интервала в UTC
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: pending_only
+          in: query
+          description: Только ещё не отправленные напоминания
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Напоминания пользователя
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReminderResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reminders/{reminderId}:
+    parameters:
+      - $ref: '#/components/parameters/ReminderId'
+    patch:
+      tags: [Reminders]
+      operationId: rescheduleReminder
+      summary: Перенос или пропуск напоминания
+      security:
+        - AdminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReminderPatchRequest'
+            examples:
+              reschedule:
+                value:
+                  due_at: '2026-10-16T07:30:00Z'
+              skip:
+                value:
+                  skipped_reason: manually_skipped
+      responses:
+        '200':
+          description: Напоминание обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReminderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/settings:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Settings]
+      operationId: getUserSettings
+      summary: Настройки сводок и режима тишины
+      security:
+        - AdminSession: []
+      responses:
+        '200':
+          description: Настройки пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Settings]
+      operationId: updateUserSettings
+      summary: Частичное изменение настроек пользователя
+      security:
+        - AdminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsPatchRequest'
+            example:
+              morning_time: '08:00'
+              notifications_on: true
+              quiet_hours_on: true
+              quiet_from: '22:00'
+              quiet_to: '08:00'
+      responses:
+        '200':
+          description: Настройки обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    AdminSession:
+      type: apiKey
+      in: cookie
+      name: vydoh_session
+      description: Подписанная HttpOnly/Secure/SameSite=Strict cookie сессии администратора.
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: UUID пользователя ВЫДОХ
+      schema:
+        type: string
+        format: uuid
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      description: UUID записи бэклога
+      schema:
+        type: string
+        format: uuid
+    TopicId:
+      name: topicId
+      in: path
+      required: true
+      description: UUID сферы жизни
+      schema:
+        type: string
+        format: uuid
+    ReminderId:
+      name: reminderId
+      in: path
+      required: true
+      description: UUID напоминания
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Ошибка валидации входных данных
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INVALID_INPUT
+            message: Поле deadline_time должно быть от 0 до 1439
+            request_id: req_01HXYZ
+            timestamp: '2026-10-08T12:00:00Z'
+    Unauthorized:
+      description: Требуется действующая сессия или неверны учётные данные
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: UNAUTHORIZED
+            message: Требуется вход в административную панель
+            request_id: req_01HXYZ
+            timestamp: '2026-10-08T12:00:00Z'
+    Forbidden:
+      description: Сессия есть, но роль не позволяет выполнить действие
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: FORBIDDEN
+            message: Недостаточно прав для просмотра персональных данных
+            request_id: req_01HXYZ
+            timestamp: '2026-10-08T12:00:00Z'
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: NOT_FOUND
+            message: Запись не найдена
+            request_id: req_01HXYZ
+            timestamp: '2026-10-08T12:00:00Z'
+    Conflict:
+      description: Операция конфликтует с текущим состоянием ресурса
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: CONFLICT
+            message: Сфера с таким названием уже существует у пользователя
+            request_id: req_01HXYZ
+            timestamp: '2026-10-08T12:00:00Z'
+    InternalServerError:
+      description: Непредвиденная ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INTERNAL_ERROR
+            message: Внутренняя ошибка сервера
+            request_id: req_01HXYZ
+            timestamp: '2026-10-08T12:00:00Z'
+  schemas:
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Логин администратора
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: Пароль администратора
+    LoginChallenge:
+      type: object
+      required: [challenge_id, mfa_required, expires_at]
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        mfa_required:
+          type: boolean
+          example: true
+        expires_at:
+          type: string
+          format: date-time
+    TotpRequest:
+      type: object
+      required: [challenge_id, code]
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          pattern: '^[0-9]{6}$'
+          description: Шестизначный одноразовый код
+    AuthSession:
+      type: object
+      required: [administrator, expires_at]
+      properties:
+        administrator:
+          type: object
+          required: [login, role]
+          properties:
+            login:
+              type: string
+              example: owner
+            role:
+              type: string
+              enum: [admin]
+        expires_at:
+          type: string
+          format: date-time
+          description: Срок действия подписанной cookie-сессии
+    PageMeta:
+      type: object
+      required: [page, page_size, total]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+    UserSummary:
+      type: object
+      required: [id, tg_id, timezone, is_blocked, created_at, last_active_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        tg_id:
+          type: integer
+          format: int64
+        username:
+          type: string
+          nullable: true
+        first_name:
+          type: string
+          nullable: true
+        timezone:
+          type: string
+          example: Europe/Moscow
+        is_blocked:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_active_at:
+          type: string
+          format: date-time
+    UserListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    UserDetail:
+      allOf:
+        - $ref: '#/components/schemas/UserSummary'
+        - type: object
+          required: [language_code, timezone_confirmed, has_topics_enabled]
+          properties:
+            language_code:
+              type: string
+              nullable: true
+              example: ru
+            timezone_confirmed:
+              type: boolean
+            has_topics_enabled:
+              type: boolean
+            consent_at:
+              type: string
+              format: date-time
+              nullable: true
+            consent_confirmed_at:
+              type: string
+              format: date-time
+              nullable: true
+            consent_edition:
+              type: string
+              nullable: true
+            blocked_at:
+              type: string
+              format: date-time
+              nullable: true
+    UserPatchRequest:
+      type: object
+      minProperties: 1
+      required: [is_blocked]
+      properties:
+        is_blocked:
+          type: boolean
+          description: Заблокировать или разблокировать получение сообщений ботом
+    ItemType:
+      type: string
+      enum: [TASK, DESIRE, IDEA, INFO, EMOTION]
+    ItemPriority:
+      type: string
+      enum: [NOW, SOON, LATER, NONE]
+    ItemTypeNullable:
+      type: string
+      nullable: true
+      enum: [TASK, DESIRE, IDEA, INFO, EMOTION]
+    ItemPriorityNullable:
+      type: string
+      nullable: true
+      enum: [NOW, SOON, LATER, NONE]
+    ItemStatus:
+      type: string
+      enum: [new, active, in_progress, waiting, delegated, done, snoozed, cancelled]
+    DeadlineAccuracy:
+      type: string
+      enum: [day, week, month]
+    DeadlineAccuracyNullable:
+      type: string
+      nullable: true
+      enum: [day, week, month]
+    RecurrenceSource:
+      type: string
+      enum: [stated, asked, noticed, history]
+    RecurrenceSourceNullable:
+      type: string
+      nullable: true
+      enum: [stated, asked, noticed, history]
+    RecurrenceRule:
+      type: object
+      nullable: true
+      additionalProperties: true
+      required: [kind, interval, anchor]
+      properties:
+        kind:
+          type: string
+          enum: [daily, weekly, monthly, yearly]
+        interval:
+          type: integer
+          minimum: 1
+        anchor:
+          type: string
+          format: date
+        days:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+    ItemCreateRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        body:
+          type: string
+          nullable: true
+          maxLength: 10000
+        type:
+          $ref: '#/components/schemas/ItemType'
+        priority:
+          $ref: '#/components/schemas/ItemPriority'
+        topic_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          allOf:
+            - $ref: '#/components/schemas/ItemStatus'
+          default: new
+        is_project:
+          type: boolean
+          default: false
+        assignee:
+          type: string
+          nullable: true
+          maxLength: 200
+        deadline_at:
+          type: string
+          format: date-time
+          nullable: true
+        deadline_accuracy:
+          $ref: '#/components/schemas/DeadlineAccuracy'
+        deadline_time:
+          type: integer
+          minimum: 0
+          maximum: 1439
+          nullable: true
+        recurrence_rule:
+          $ref: '#/components/schemas/RecurrenceRule'
+        recurrence_text:
+          type: string
+          nullable: true
+        recurrence_source:
+          $ref: '#/components/schemas/RecurrenceSource'
+    ItemPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        body:
+          type: string
+          nullable: true
+          maxLength: 10000
+        type:
+          $ref: '#/components/schemas/ItemTypeNullable'
+        priority:
+          $ref: '#/components/schemas/ItemPriorityNullable'
+        topic_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ItemStatus'
+        assignee:
+          type: string
+          nullable: true
+          maxLength: 200
+        deadline_at:
+          type: string
+          format: date-time
+          nullable: true
+        deadline_accuracy:
+          $ref: '#/components/schemas/DeadlineAccuracyNullable'
+        deadline_time:
+          type: integer
+          minimum: 0
+          maximum: 1439
+          nullable: true
+        recurrence_rule:
+          $ref: '#/components/schemas/RecurrenceRule'
+        recurrence_text:
+          type: string
+          nullable: true
+        recurrence_source:
+          $ref: '#/components/schemas/RecurrenceSourceNullable'
+    ItemResponse:
+      type: object
+      required: [id, user_id, text, status, is_project, is_draft, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        source_batch_id:
+          type: string
+          format: uuid
+          nullable: true
+        text:
+          type: string
+        body:
+          type: string
+          nullable: true
+        type:
+          $ref: '#/components/schemas/ItemTypeNullable'
+        priority:
+          $ref: '#/components/schemas/ItemPriorityNullable'
+        topic_id:
+          type: string
+          format: uuid
+          nullable: true
+        topic:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ItemStatus'
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_project:
+          type: boolean
+        assignee:
+          type: string
+          nullable: true
+        deadline_at:
+          type: string
+          format: date-time
+          nullable: true
+        deadline_accuracy:
+          $ref: '#/components/schemas/DeadlineAccuracyNullable'
+        deadline_time:
+          type: integer
+          minimum: 0
+          maximum: 1439
+          nullable: true
+        recurrence_rule:
+          $ref: '#/components/schemas/RecurrenceRule'
+        recurrence_text:
+          type: string
+          nullable: true
+        recurrence_source:
+          $ref: '#/components/schemas/RecurrenceSourceNullable'
+        is_draft:
+          type: boolean
+        draft_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ItemListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    TopicCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        emoji:
+          type: string
+          nullable: true
+          maxLength: 16
+        sort_order:
+          type: integer
+          minimum: 0
+          default: 0
+        is_default:
+          type: boolean
+          default: false
+    TopicPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        emoji:
+          type: string
+          nullable: true
+          maxLength: 16
+        sort_order:
+          type: integer
+          minimum: 0
+        is_default:
+          type: boolean
+        is_archived:
+          type: boolean
+    TopicResponse:
+      type: object
+      required: [id, user_id, name, sort_order, is_default, is_archived, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        emoji:
+          type: string
+          nullable: true
+        sort_order:
+          type: integer
+        tg_thread_id:
+          type: integer
+          format: int32
+          nullable: true
+        is_default:
+          type: boolean
+        is_archived:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    ReminderKind:
+      type: string
+      enum: [morning, evening, deadline_eve, deadline_day, deadline_hour, project, period]
+    ReminderResponse:
+      type: object
+      required: [id, user_id, kind, due_at, attempts, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/ReminderKind'
+        due_at:
+          type: string
+          format: date-time
+        dedupe_key:
+          type: string
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        attempts:
+          type: integer
+          minimum: 0
+        skipped_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    ReminderPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        due_at:
+          type: string
+          format: date-time
+        skipped_reason:
+          type: string
+          minLength: 1
+          maxLength: 100
+    SettingsResponse:
+      type: object
+      required: [user_id, morning_time, evening_time, notifications_on, evening_on, quiet_hours_on, quiet_from, quiet_to, text_profile, onboarding_step, updated_at]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        morning_time:
+          type: string
+          pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Локальное время в формате HH:MM
+          example: '08:30'
+        evening_time:
+          type: string
+          pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Локальное время в формате HH:MM
+          example: '21:00'
+        notifications_on:
+          type: boolean
+        evening_on:
+          type: boolean
+        quiet_hours_on:
+          type: boolean
+        quiet_from:
+          type: string
+          pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Начало тихих часов, локальное время HH:MM
+          example: '22:00'
+        quiet_to:
+          type: string
+          pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Конец тихих часов, локальное время HH:MM
+          example: '08:00'
+        text_profile:
+          type: string
+          example: reserved
+        onboarding_step:
+          type: integer
+          minimum: 0
+        onboarding_done_at:
+          type: string
+          format: date-time
+          nullable: true
+        preferred_name:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+    SettingsPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        morning_time:
+          type: string
+          pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'
+        evening_time:
+          type: string
+          pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'
+        notifications_on:
+          type: boolean
+        evening_on:
+          type: boolean
+        quiet_hours_on:
+          type: boolean
+        quiet_from:
+          type: string
+          pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'
+        quiet_to:
+          type: string
+          pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'
+        preferred_name:
+          type: string
+          nullable: true
+          maxLength: 100
+    ErrorResponse:
+      type: object
+      required: [code, message, request_id, timestamp]
+      properties:
+        code:
+          type: string
+          description: Машиночитаемый код ошибки
+          example: INVALID_INPUT
+        message:
+          type: string
+          description: Человекочитаемое описание ошибки
+          example: Поле deadline_time должно быть от 0 до 1439
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
+        request_id:
+          type: string
+          description: Идентификатор запроса для журнала сервера
+          example: req_01HXYZ
+        timestamp:
+          type: string
+          format: date-time
